@@ -17,7 +17,6 @@ import torch.nn as nn
 import torch.optim as optim
 from models import FastDVDnet
 from dataset import ValDataset
-from dataloaders import train_dali_loader
 from utils import svd_orthogonalization, close_logger, init_logging, normalize_augment, crop_image
 from train_common import resume_training, lr_scheduler, log_train_psnr, \
 					validate_and_log, save_model_checkpoint

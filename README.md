@@ -12,11 +12,9 @@ The code runs on Python +3.6. You can create a conda environment with all the de
 ```
 conda env create -f requirements.yml -n <env_name>
 ```
-
 NOTE: the code was updated to support a newer version of the DALI library. For the original version of the algorithm which supported pytorch=1.0.0 and nvidia-dali==0.10.0 you can see this [release](https://github.com/m-tassano/fastdvdnet/releases/tag/v0.1)
 ```
-pip3 install -r /content/fastdvdnet/requirements.txt
-pip3 install --extra-index-url https://developer.download.nvidia.com/compute/redist/cuda/10.0 nvidia-dali==0.10.0
+pip3 install -r requirements.txt
 ```
 ### Testing
 
@@ -26,7 +24,7 @@ If you want to denoise an image sequence using the pretrained model you can exec
 python3 test_fastdvdnet.py \
 	--test_path ./test/ \
 	--noise_sigma 30 \
-	--model_file /content/fastdvdnet/logs/net.pth \
+	--model_file ./logs/net.pth \
 	--save_path ./results/
 ```
 
@@ -50,6 +48,7 @@ python3 train_fastdvdnet.py \
 	--noise_ival 5 55 \
 	--val_noiseL 25 \
 	--log_dir logs \
+	--crop
 ```
 
 **NOTES**
@@ -68,4 +67,12 @@ python3 train_fastdvdnet.py \
 	--resume_training
 ```
 
+### ABOUT
+Copying and distribution of this file, with or without modification, are permitted in any medium without royalty provided the copyright notice and this notice are preserved. This file is offered as-is, without any warranty.
+
+- Author : Matias Tassano ```mtassano at gopro dot com```
+- Copyright : (C) 2019 Matias Tassano
+- Licence : GPL v3+, see GPLv3.txt
+
+The sequences are Copyright GoPro 2018
 
