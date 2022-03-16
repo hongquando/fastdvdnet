@@ -27,7 +27,6 @@ import numpy as np
 def main(**args):
 	r"""Performs the main training loop
 	"""
-
 	# Load dataset
 	print('> Loading datasets ...')
 	dataset_val = ValDataset(valsetdir=args['valset_dir'], gray_mode=False)
@@ -45,7 +44,8 @@ def main(**args):
 	# 								temp_stride=3)
 
 
-	num_minibatches = int(args['max_number_patches']//args['batch_size'])
+	# num_minibatches = int(args['max_number_patches']//args['batch_size'])
+	num_minibatches = 4000
 	ctrl_fr_idx = (args['temp_patch_size'] - 1) // 2
 	print("\t# of training samples: %d\n" % int(args['max_number_patches']))
 
@@ -70,6 +70,7 @@ def main(**args):
 	# Resume training or start anew
 	start_epoch, training_params = resume_training(args, model, optimizer)
 
+	batch_size = args['batch_size']
 	# Training
 	start_time = time.time()
 	for epoch in range(start_epoch, args['epochs']):
@@ -96,65 +97,67 @@ def main(**args):
 			# x_new = np.expand_dims(x, 3)
 			# x_new = np.reshape(x_new, (x_new.shape[0], 1, x_new.shape[1], x_new.shape[2]))
 			batchs = []
-			for i in range(x_new.shape[0]-5):
-				tmp = x_new[i:i + 5, :, :, :]
+			for j in range(x_new.shape[0]-5):
+				tmp = x_new[j:j + 5, :, :, :]
 				batchs.append(tmp)
 			x_new = np.stack(batchs, axis=0).astype(np.float32)
 			# x_new = np.reshape(x_new, (x_new.shape[0], -1, x_new.shape[2]))
 			# x_new = np.expand_dims(x_new, 0).astype(np.float32)
 			data = torch.tensor(x_new).cuda()
 
-			# Pre-training step
-			model.train()
+			for i in range(0, data.size()[0], batch_size):
+				data_batch = data[i:i + batch_size, :, :, :]
+				# Pre-training step
+				model.train()
 
-			# When optimizer = optim.Optimizer(net.parameters()) we only zero the optim's grads
-			optimizer.zero_grad()
+				# When optimizer = optim.Optimizer(net.parameters()) we only zero the optim's grads
+				optimizer.zero_grad()
 
-			# convert inp to [N, num_frames*C. H, W] in  [0., 1.] from [N, num_frames, C. H, W] in [0., 255.]
-			# extract ground truth (central frame)
-			img_train, gt_train = normalize_augment(data, ctrl_fr_idx)
-			N, _, H, W = img_train.size()
+				# convert inp to [N, num_frames*C. H, W] in  [0., 1.] from [N, num_frames, C. H, W] in [0., 255.]
+				# extract ground truth (central frame)
+				img_train, gt_train = normalize_augment(data_batch, ctrl_fr_idx)
+				N, _, H, W = img_train.size()
 
-			# std dev of each sequence
-			stdn = torch.empty((N, 1, 1, 1)).cuda().uniform_(args['noise_ival'][0], to=args['noise_ival'][1])
-			# draw noise samples from std dev tensor
-			noise = torch.zeros_like(img_train)
-			noise = torch.normal(mean=noise, std=stdn.expand_as(noise))
+				# std dev of each sequence
+				stdn = torch.empty((N, 1, 1, 1)).cuda().uniform_(args['noise_ival'][0], to=args['noise_ival'][1])
+				# draw noise samples from std dev tensor
+				noise = torch.zeros_like(img_train)
+				noise = torch.normal(mean=noise, std=stdn.expand_as(noise))
 
-			#define noisy input
-			imgn_train = img_train + noise
+				#define noisy input
+				imgn_train = img_train + noise
 
-			# Send tensors to GPU
-			gt_train = gt_train.cuda(non_blocking=True)
-			imgn_train = imgn_train.cuda(non_blocking=True)
-			noise = noise.cuda(non_blocking=True)
-			noise_map = stdn.expand((N, 1, H, W)).cuda(non_blocking=True) # one channel per image
+				# Send tensors to GPU
+				gt_train = gt_train.cuda(non_blocking=True)
+				imgn_train = imgn_train.cuda(non_blocking=True)
+				noise = noise.cuda(non_blocking=True)
+				noise_map = stdn.expand((N, 1, H, W)).cuda(non_blocking=True) # one channel per image
 
-			# Evaluate model and optimize it
-			out_train = model(imgn_train, noise_map)
+				# Evaluate model and optimize it
+				out_train = model(imgn_train, noise_map)
 
-			# Compute loss
-			loss = criterion(gt_train, out_train) / (N*2)
-			loss.backward()
-			optimizer.step()
+				# Compute loss
+				loss = criterion(gt_train, out_train) / (N*2)
+				loss.backward()
+				optimizer.step()
 
-			# Results
-			if training_params['step'] % args['save_every'] == 0:
-				# Apply regularization by orthogonalizing filters
-				if not training_params['no_orthog']:
-					model.apply(svd_orthogonalization)
+				# Results
+				if training_params['step'] % args['save_every'] == 0:
+					# Apply regularization by orthogonalizing filters
+					if not training_params['no_orthog']:
+						model.apply(svd_orthogonalization)
 
-				# Compute training PSNR
-				log_train_psnr(out_train, \
-								gt_train, \
-								loss, \
-								writer, \
-								epoch, \
-								i, \
-								num_minibatches, \
-								training_params)
-			# update step counter
-			training_params['step'] += 1
+					# Compute training PSNR
+					log_train_psnr(out_train, \
+									gt_train, \
+									loss, \
+									writer, \
+									epoch, \
+									i, \
+									num_minibatches, \
+									training_params)
+				# update step counter
+				training_params['step'] += 1
 
 		# Call to model.eval() to correctly set the BN layers before inference
 		model.eval()
@@ -214,10 +217,10 @@ if __name__ == "__main__":
 	# Preprocessing parameters
 	parser.add_argument("--crop", action='store_true',
 						help='reduce the size of image')
-	parser.add_argument("--patch_size", "--p", type=int, default=96, help="Patch size")
+	# parser.add_argument("--patch_size", "--p", type=int, default=96, help="Patch size")
 	parser.add_argument("--temp_patch_size", "--tp", type=int, default=5, help="Temporal patch size")
-	parser.add_argument("--max_number_patches", "--m", type=int, default=256000, \
-						help="Maximum number of patches")
+	# parser.add_argument("--max_number_patches", "--m", type=int, default=256000, \
+	# 					help="Maximum number of patches")
 	# Dirs
 	parser.add_argument("--log_dir", type=str, default="logs", \
 					 help='path of log files')

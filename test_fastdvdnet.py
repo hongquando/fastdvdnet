@@ -13,7 +13,7 @@ import torch.nn as nn
 from models import FastDVDnet
 from fastdvdnet import denoise_seq_fastdvdnet
 from utils import batch_psnr, init_logger_test, \
-    variable_to_cv2_image, remove_dataparallel_wrapper, open_sequence, close_logger
+    variable_to_cv2_image, remove_dataparallel_wrapper, open_sequence, close_logger, crop_image
 import glob
 import scipy.io
 import numpy as np
@@ -105,12 +105,16 @@ def test_fastdvdnet(**args):
         with torch.no_grad():
             mat = scipy.io.loadmat(seqs_dirs[i])
             x = mat[list(mat.keys())[-1]]
+            if args['crop']:
+                x, d0, d1, d2 = crop_image(x)
             x_new = [x, x, x]
             x_new = np.stack(x_new, axis=3)
             x_new = np.reshape(x_new, (x_new.shape[0], 3, x_new.shape[1], x_new.shape[2]))
             # seq is [num_frames, C, H, W]
             seq = x_new.astype(np.float32)
             seq = torch.from_numpy(seq).to(device)
+            if args['max_num_fr_per_seq'] > 0:
+                seq = seq[0:args['max_num_fr_per_seq'],:,:,:]
             seq_time = time.time()
 
             # process data
@@ -179,7 +183,7 @@ if __name__ == "__main__":
                         help='path to sequence to denoise')
     parser.add_argument("--suffix", type=str, default="",
                         help='suffix to add to output name')
-    parser.add_argument("--max_num_fr_per_seq", type=int, default=25,
+    parser.add_argument("--max_num_fr_per_seq", type=int, default=0,
                         help='max number of frames to load per sequence')
     parser.add_argument("--noise_sigma", type=float,
                         default=25, help='noise level used on test set')
@@ -191,6 +195,8 @@ if __name__ == "__main__":
                         help='where to save outputs as png')
     parser.add_argument("--gray", action='store_true',
                         help='perform denoising of grayscale images instead of RGB')
+    parser.add_argument("--crop", action='store_true',
+                        help='reduce the size of image')
 
     argspar = parser.parse_args()
     # Normalize noises ot [0, 1]

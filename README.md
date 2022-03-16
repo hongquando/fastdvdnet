@@ -47,6 +47,7 @@ python3 train_fastdvdnet.py \
 	--repeat_data 10 \
 	--noise_ival 5 55 \
 	--val_noiseL 25 \
+	--batch_size 64 \
 	--log_dir logs \
 	--crop
 ```
