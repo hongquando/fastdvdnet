@@ -47,7 +47,7 @@ def main(**args):
 	# num_minibatches = int(args['max_number_patches']//args['batch_size'])
 	num_minibatches = 4000
 	ctrl_fr_idx = (args['temp_patch_size'] - 1) // 2
-	print("\t# of training samples: %d\n" % int(args['max_number_patches']))
+	# print("\t# of training samples: %d\n" % int(args['max_number_patches']))
 
 	# Init loggers
 	writer, logger = init_logging(args)
@@ -85,8 +85,9 @@ def main(**args):
 		print('\nlearning rate %f' % current_lr)
 
 		# train
-
+		count = 1
 		for i, file in enumerate(loader_train, 0):
+
 			mat = scipy.io.loadmat(file)
 			x = mat[list(mat.keys())[-1]]
 			if args['crop']:
@@ -105,8 +106,8 @@ def main(**args):
 			# x_new = np.expand_dims(x_new, 0).astype(np.float32)
 			data = torch.tensor(x_new).cuda()
 
-			for i in range(0, data.size()[0], batch_size):
-				data_batch = data[i:i + batch_size, :, :, :]
+			for k in range(0, data.size()[0], batch_size):
+				data_batch = data[k:k + batch_size, :, :, :]
 				# Pre-training step
 				model.train()
 
@@ -140,24 +141,25 @@ def main(**args):
 				loss = criterion(gt_train, out_train) / (N*2)
 				loss.backward()
 				optimizer.step()
+				count += 1
+			# Results
+			if training_params['step'] % args['save_every'] == 0:
+				# Apply regularization by orthogonalizing filters
+				if not training_params['no_orthog']:
+					model.apply(svd_orthogonalization)
 
-				# Results
-				if training_params['step'] % args['save_every'] == 0:
-					# Apply regularization by orthogonalizing filters
-					if not training_params['no_orthog']:
-						model.apply(svd_orthogonalization)
+				# Compute training PSNR
+				log_train_psnr(out_train, \
+								gt_train, \
+								loss, \
+								writer, \
+								epoch, \
+								i+count, \
+								num_minibatches, \
+								training_params)
 
-					# Compute training PSNR
-					log_train_psnr(out_train, \
-									gt_train, \
-									loss, \
-									writer, \
-									epoch, \
-									i, \
-									num_minibatches, \
-									training_params)
 				# update step counter
-				training_params['step'] += 1
+			training_params['step'] += 1
 
 		# Call to model.eval() to correctly set the BN layers before inference
 		model.eval()

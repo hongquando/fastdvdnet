@@ -107,14 +107,15 @@ def test_fastdvdnet(**args):
             x = mat[list(mat.keys())[-1]]
             if args['crop']:
                 x, d0, d1, d2 = crop_image(x)
+            if args['max_num_fr_per_seq'] > 0:
+                x = x[:, :, 0:args['max_num_fr_per_seq']]
             x_new = [x, x, x]
             x_new = np.stack(x_new, axis=3)
             x_new = np.reshape(x_new, (x_new.shape[0], 3, x_new.shape[1], x_new.shape[2]))
             # seq is [num_frames, C, H, W]
             seq = x_new.astype(np.float32)
             seq = torch.from_numpy(seq).to(device)
-            if args['max_num_fr_per_seq'] > 0:
-                seq = seq[0:args['max_num_fr_per_seq'],:,:,:]
+
             seq_time = time.time()
 
             # process data

@@ -26,6 +26,7 @@ python3 test_fastdvdnet.py \
 	--noise_sigma 30 \
 	--model_file ./logs/net.pth \
 	--save_path ./results/
+	--crop
 ```
 
 **NOTES**
@@ -44,7 +45,7 @@ python3 train_fastdvdnet.py \
 	--trainset_dir ./train \
 	--valset_dir ./valid \
 	--epoch 80 \
-	--repeat_data 10 \
+	--repeat_data 25 \
 	--noise_ival 5 55 \
 	--val_noiseL 25 \
 	--batch_size 64 \
